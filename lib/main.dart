@@ -228,7 +228,7 @@ class VehicleDataPage extends StatelessWidget {
                           () {
                             _launchPhoneDialer(vehicleData[0]['emergency_number']);
                           },
-                          'Call',
+                          'SOS',
                         ),
                         SizedBox(height: 16),
                         // Fetch and display QR code image
