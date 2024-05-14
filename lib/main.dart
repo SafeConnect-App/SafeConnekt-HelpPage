@@ -10,7 +10,8 @@ import 'package:flutter_application_1/vehicle_data_page.dart';
 void main() async {
     WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform);
+      options: FirebaseOptions(apiKey: "AIzaSyAnCHszGq7GhQq_Cb3H-o4fEUO3jWuCHHw", appId: "1:159443933809:web:6053b87445da9613eb99d0", messagingSenderId: "159443933809", projectId: "safe-connect-app-1",
+      storageBucket: "safe-connect-app-1.appspot.com"));
   runApp(MyApp());
 }
 

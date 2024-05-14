@@ -1,9 +1,14 @@
 import 'dart:convert';
 import 'dart:typed_data';
-
+import 'dart:math';
+import 'dart:io' as io;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:camera/camera.dart';
 
 class VehicleDataPage extends StatelessWidget {
   @override
@@ -102,6 +107,13 @@ class VehicleDataPage extends StatelessWidget {
                           'SOS',
                         ),
                         SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () {
+                            _captureAndUploadImage(vehicleData[0]['emergency_number'], context);
+                          },
+                          child: Text('Capture and Upload Image'),
+                        ),
+                        SizedBox(height: 16),
                         // Fetch and display QR code image
                         FutureBuilder<Uint8List?>(
                           future: _fetchQrCodeImage(qrCodeUrl),
@@ -127,8 +139,8 @@ class VehicleDataPage extends StatelessWidget {
                                     ),
                                     child: Image.memory(
                                       snapshot.data!,
-                                      width: 200, 
-                                      height: 200, 
+                                      width: 200,
+                                      height: 200,
                                     ),
                                   ),
                                 ],
@@ -173,30 +185,30 @@ class VehicleDataPage extends StatelessWidget {
   Widget _buildItemWithIconAndAction(String text, IconData icon, Color color, VoidCallback? onPressed, String actionText) {
     return onPressed != null
         ? ElevatedButton.icon(
-            onPressed: onPressed,
-            icon: Icon(
-              icon,
-              color: Colors.white,
-            ),
-            label: Text(
-              actionText,
-              style: TextStyle(color: Colors.white),
-            ),
-            style: ElevatedButton.styleFrom(backgroundColor: color),
-          )
+      onPressed: onPressed,
+      icon: Icon(
+        icon,
+        color: Colors.white,
+      ),
+      label: Text(
+        actionText,
+        style: TextStyle(color: Colors.white),
+      ),
+      style: ElevatedButton.styleFrom(backgroundColor: color),
+    )
         : Row(
-            children: [
-              Icon(
-                icon,
-                color: color,
-              ),
-              SizedBox(width: 8),
-              Text(
-                text,
-                style: TextStyle(fontSize: 18, color: color),
-              ),
-            ],
-          );
+      children: [
+        Icon(
+          icon,
+          color: color,
+        ),
+        SizedBox(width: 8),
+        Text(
+          text,
+          style: TextStyle(fontSize: 18, color: color),
+        ),
+      ],
+    );
   }
 
   Future<Map<String, dynamic>> _fetchVehicleData(String vehicleNumber) async {
@@ -243,5 +255,44 @@ class VehicleDataPage extends StatelessWidget {
       path: phoneNumber,
     );
     await launch(_phoneLaunchUri.toString());
+  }
+
+  Future<void> _captureAndUploadImage(String emergencyContact, BuildContext context) async {
+    final cameras = await availableCameras();
+    final firstCamera = cameras.first;
+    final controller = CameraController(firstCamera, ResolutionPreset.medium);
+    await controller.initialize();
+    final XFile imageFile = await controller.takePicture();
+    final String randomId = DateTime.now().millisecondsSinceEpoch.toString();
+    final String imagePath = imageFile.path;
+
+    try {
+      await Firebase.initializeApp();
+      final firebase_storage.Reference ref = firebase_storage.FirebaseStorage.instance.ref().child('logs/$randomId');
+      final firebase_storage.UploadTask uploadTask = ref.putFile(io.File(imagePath));
+
+      final firebase_storage.TaskSnapshot downloadUrl = (await uploadTask);
+      final String mediaUrl = await downloadUrl.ref.getDownloadURL();
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(emergencyContact)
+          .collection('logsForEmergencyContact')
+          .doc(randomId)
+          .set({
+        'mediaLink': mediaUrl,
+        'address': 'address',
+        'type': 'image',
+        'duration_seconds': 'null',
+        'google_maps_url': 'location'
+      });
+
+      // Do something with the uploaded image URL if needed
+    } catch (e) {
+      print('Error uploading image: $e');
+      throw Exception('Failed to upload image: $e');
+    } finally {
+      controller.dispose();
+    }
   }
 }
