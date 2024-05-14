@@ -1,14 +1,12 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'dart:math';
-import 'dart:io' as io;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:camera/camera.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:file_picker/file_picker.dart';
 
 class VehicleDataPage extends StatelessWidget {
   @override
@@ -114,7 +112,6 @@ class VehicleDataPage extends StatelessWidget {
                           child: Text('Capture and Upload Image'),
                         ),
                         SizedBox(height: 16),
-                        // Fetch and display QR code image
                         FutureBuilder<Uint8List?>(
                           future: _fetchQrCodeImage(qrCodeUrl),
                           builder: (context, snapshot) {
@@ -258,41 +255,40 @@ class VehicleDataPage extends StatelessWidget {
   }
 
   Future<void> _captureAndUploadImage(String emergencyContact, BuildContext context) async {
-    final cameras = await availableCameras();
-    final firstCamera = cameras.first;
-    final controller = CameraController(firstCamera, ResolutionPreset.medium);
-    await controller.initialize();
-    final XFile imageFile = await controller.takePicture();
-    final String randomId = DateTime.now().millisecondsSinceEpoch.toString();
-    final String imagePath = imageFile.path;
+    final result = await FilePicker.platform.pickFiles(type: FileType.image);
+    if (result != null && result.files.isNotEmpty) {
+      final Uint8List? fileBytes = result.files.first.bytes;
+      final String fileName = result.files.first.name;
 
-    try {
-      await Firebase.initializeApp();
-      final firebase_storage.Reference ref = firebase_storage.FirebaseStorage.instance.ref().child('logs/$randomId');
-      final firebase_storage.UploadTask uploadTask = ref.putFile(io.File(imagePath));
+      if (fileBytes == null) return;
 
-      final firebase_storage.TaskSnapshot downloadUrl = (await uploadTask);
-      final String mediaUrl = await downloadUrl.ref.getDownloadURL();
+      final String randomId = DateTime.now().millisecondsSinceEpoch.toString();
 
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(emergencyContact)
-          .collection('logsForEmergencyContact')
-          .doc(randomId)
-          .set({
-        'mediaLink': mediaUrl,
-        'address': 'address',
-        'type': 'image',
-        'duration_seconds': 'null',
-        'google_maps_url': 'location'
-      });
+      try {
+        await Firebase.initializeApp();
+        final firebase_storage.Reference ref = firebase_storage.FirebaseStorage.instance.ref().child('logs/${DateTime.now().millisecondsSinceEpoch}.jpg');
+        final firebase_storage.UploadTask uploadTask = ref.putData(fileBytes);
 
-      // Do something with the uploaded image URL if needed
-    } catch (e) {
-      print('Error uploading image: $e');
-      throw Exception('Failed to upload image: $e');
-    } finally {
-      controller.dispose();
+        final firebase_storage.TaskSnapshot downloadUrl = await uploadTask;
+        final String mediaUrl = await downloadUrl.ref.getDownloadURL();
+
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(emergencyContact)
+            .collection('logsForEmergencyContact')
+            .doc(randomId)
+            .set({
+          'mediaLink': mediaUrl,
+          'address': 'address',
+          'type': 'image',
+          'duration_seconds': 'null',
+          'google_maps_url': 'location'
+        });
+
+      } catch (e) {
+        print('Error uploading image: $e');
+        throw Exception('Failed to upload image: $e');
+      }
     }
   }
 }
