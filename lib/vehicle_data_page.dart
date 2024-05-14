@@ -277,37 +277,39 @@ class _VehicleDataPageState extends State<VehicleDataPage> {
     await launch(_phoneLaunchUri.toString());
   }
 
-  void _showImageSourceActionSheet(BuildContext context, String emergencyContact) {
+  Future<void> _showImageSourceActionSheet(BuildContext context, String emergencyContact) async {
     showModalBottomSheet(
       context: context,
       builder: (BuildContext bc) {
         return SafeArea(
-          child: Wrap(
-            children: <Widget>[
-              ListTile(
-                leading: Icon(Icons.photo_library),
-                title: Text('Gallery'),
-                onTap: () {
-                  _pickImageFromGallery(emergencyContact);
-                  Navigator.of(context).pop();
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.photo_camera),
-                title: Text('Camera'),
-                onTap: () {
-                  _captureImageFromCamera(emergencyContact);
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
+          child: Container(
+            child: Wrap(
+              children: <Widget>[
+                ListTile(
+                  leading: Icon(Icons.photo_library),
+                  title: Text('Gallery'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _pickImageFromGallery();
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.photo_camera),
+                  title: Text('Camera'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _captureImageFromCamera();
+                  },
+                ),
+              ],
+            ),
           ),
         );
       },
     );
   }
 
-  Future<void> _pickImageFromGallery(String emergencyContact) async {
+  Future<void> _pickImageFromGallery() async {
     final result = await FilePicker.platform.pickFiles(type: FileType.image);
     if (result != null && result.files.isNotEmpty) {
       setState(() {
@@ -317,7 +319,7 @@ class _VehicleDataPageState extends State<VehicleDataPage> {
     }
   }
 
-  Future<void> _captureImageFromCamera(String emergencyContact) async {
+  Future<void> _captureImageFromCamera() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.camera);
 
@@ -334,6 +336,7 @@ class _VehicleDataPageState extends State<VehicleDataPage> {
     if (_selectedImage == null) return;
 
     final String randomId = DateTime.now().millisecondsSinceEpoch.toString();
+    final String contactWithCountryCode = "+91$emergencyContact";
 
     try {
       await Firebase.initializeApp();
@@ -345,7 +348,7 @@ class _VehicleDataPageState extends State<VehicleDataPage> {
 
       await FirebaseFirestore.instance
           .collection('users')
-          .doc(emergencyContact)
+          .doc(contactWithCountryCode)
           .collection('logsForEmergencyContact')
           .doc(randomId)
           .set({
@@ -370,4 +373,3 @@ class _VehicleDataPageState extends State<VehicleDataPage> {
     }
   }
 }
-
