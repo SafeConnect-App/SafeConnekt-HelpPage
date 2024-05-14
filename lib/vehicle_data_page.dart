@@ -7,8 +7,17 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 
-class VehicleDataPage extends StatelessWidget {
+class VehicleDataPage extends StatefulWidget {
+  @override
+  _VehicleDataPageState createState() => _VehicleDataPageState();
+}
+
+class _VehicleDataPageState extends State<VehicleDataPage> {
+  Uint8List? _selectedImage;
+  String? _fileName;
+
   @override
   Widget build(BuildContext context) {
     final String vehicleNumber = ModalRoute.of(context)!.settings.arguments as String;
@@ -107,11 +116,25 @@ class VehicleDataPage extends StatelessWidget {
                         SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: () {
-                            _captureAndUploadImage(vehicleData[0]['emergency_number'], context);
+                            _showImageSourceActionSheet(context, vehicleData[0]['emergency_number']);
                           },
                           child: Text('Capture and Upload Image'),
                         ),
                         SizedBox(height: 16),
+                        _selectedImage != null
+                            ? Column(
+                                children: [
+                                  Image.memory(_selectedImage!, width: 200, height: 200),
+                                  SizedBox(height: 16),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      _submitImage(vehicleData[0]['emergency_number']);
+                                    },
+                                    child: Text('Submit Image'),
+                                  ),
+                                ],
+                              )
+                            : Container(),
                         FutureBuilder<Uint8List?>(
                           future: _fetchQrCodeImage(qrCodeUrl),
                           builder: (context, snapshot) {
@@ -254,41 +277,97 @@ class VehicleDataPage extends StatelessWidget {
     await launch(_phoneLaunchUri.toString());
   }
 
-  Future<void> _captureAndUploadImage(String emergencyContact, BuildContext context) async {
+  void _showImageSourceActionSheet(BuildContext context, String emergencyContact) {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext bc) {
+        return SafeArea(
+          child: Wrap(
+            children: <Widget>[
+              ListTile(
+                leading: Icon(Icons.photo_library),
+                title: Text('Gallery'),
+                onTap: () {
+                  _pickImageFromGallery(emergencyContact);
+                  Navigator.of(context).pop();
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.photo_camera),
+                title: Text('Camera'),
+                onTap: () {
+                  _captureImageFromCamera(emergencyContact);
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickImageFromGallery(String emergencyContact) async {
     final result = await FilePicker.platform.pickFiles(type: FileType.image);
     if (result != null && result.files.isNotEmpty) {
-      final Uint8List? fileBytes = result.files.first.bytes;
-      final String fileName = result.files.first.name;
+      setState(() {
+        _selectedImage = result.files.first.bytes;
+        _fileName = result.files.first.name;
+      });
+    }
+  }
 
-      if (fileBytes == null) return;
+  Future<void> _captureImageFromCamera(String emergencyContact) async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.camera);
 
-      final String randomId = DateTime.now().millisecondsSinceEpoch.toString();
+    if (pickedFile != null) {
+      final bytes = await pickedFile.readAsBytes();
+      setState(() {
+        _selectedImage = bytes;
+        _fileName = pickedFile.name;
+      });
+    }
+  }
 
-      try {
-        await Firebase.initializeApp();
-        final firebase_storage.Reference ref = firebase_storage.FirebaseStorage.instance.ref().child('logs/${DateTime.now().millisecondsSinceEpoch}.jpg');
-        final firebase_storage.UploadTask uploadTask = ref.putData(fileBytes);
+  Future<void> _submitImage(String emergencyContact) async {
+    if (_selectedImage == null) return;
 
-        final firebase_storage.TaskSnapshot downloadUrl = await uploadTask;
-        final String mediaUrl = await downloadUrl.ref.getDownloadURL();
+    final String randomId = DateTime.now().millisecondsSinceEpoch.toString();
 
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(emergencyContact)
-            .collection('logsForEmergencyContact')
-            .doc(randomId)
-            .set({
-          'mediaLink': mediaUrl,
-          'address': 'address',
-          'type': 'image',
-          'duration_seconds': 'null',
-          'google_maps_url': 'location'
-        });
+    try {
+      await Firebase.initializeApp();
+      final firebase_storage.Reference ref = firebase_storage.FirebaseStorage.instance.ref().child('logs/${DateTime.now().millisecondsSinceEpoch}.jpg');
+      final firebase_storage.UploadTask uploadTask = ref.putData(_selectedImage!);
 
-      } catch (e) {
-        print('Error uploading image: $e');
-        throw Exception('Failed to upload image: $e');
-      }
+      final firebase_storage.TaskSnapshot downloadUrl = await uploadTask;
+      final String mediaUrl = await downloadUrl.ref.getDownloadURL();
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(emergencyContact)
+          .collection('logsForEmergencyContact')
+          .doc(randomId)
+          .set({
+        'mediaLink': mediaUrl,
+        'address': 'address',
+        'type': 'image',
+        'duration_seconds': 'null',
+        'google_maps_url': 'location'
+      });
+
+      setState(() {
+        _selectedImage = null;
+        _fileName = null;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Image uploaded successfully')),
+      );
+    } catch (e) {
+      print('Error uploading image: $e');
+      throw Exception('Failed to upload image: $e');
     }
   }
 }
+
