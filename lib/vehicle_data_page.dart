@@ -8,6 +8,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:mime/mime.dart'; // Import the mime package
 
 class VehicleDataPage extends StatefulWidget {
   @override
@@ -17,10 +20,14 @@ class VehicleDataPage extends StatefulWidget {
 class _VehicleDataPageState extends State<VehicleDataPage> {
   Uint8List? _selectedImage;
   String? _fileName;
+  String? _mediaType; // To store media type ('image' or 'video')
+  Position? _currentPosition;
+  String? _address;
 
   @override
   Widget build(BuildContext context) {
-    final String vehicleNumber = ModalRoute.of(context)!.settings.arguments as String;
+    final String vehicleNumber =
+        ModalRoute.of(context)!.settings.arguments as String;
 
     return Scaffold(
       appBar: AppBar(
@@ -99,7 +106,8 @@ class _VehicleDataPageState extends State<VehicleDataPage> {
                           Icons.phone,
                           Colors.green,
                           () {
-                            _launchPhoneDialer(vehicleData[0]['contact_number']);
+                            _launchPhoneDialer(
+                                vehicleData[0]['contact_number']);
                           },
                           'Call',
                         ),
@@ -109,14 +117,16 @@ class _VehicleDataPageState extends State<VehicleDataPage> {
                           Icons.error,
                           Colors.red,
                           () {
-                            _launchPhoneDialer(vehicleData[0]['emergency_number']);
+                            _launchPhoneDialer(
+                                vehicleData[0]['emergency_number']);
                           },
                           'SOS',
                         ),
                         SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: () {
-                            _showImageSourceActionSheet(context, vehicleData[0]['emergency_number']);
+                            _showImageSourceActionSheet(
+                                context, vehicleData[0]['emergency_number']);
                           },
                           child: Text('Capture and Upload Image'),
                         ),
@@ -124,11 +134,13 @@ class _VehicleDataPageState extends State<VehicleDataPage> {
                         _selectedImage != null
                             ? Column(
                                 children: [
-                                  Image.memory(_selectedImage!, width: 200, height: 200),
+                                  Image.memory(_selectedImage!,
+                                      width: 200, height: 200),
                                   SizedBox(height: 16),
                                   ElevatedButton(
                                     onPressed: () {
-                                      _submitImage(vehicleData[0]['emergency_number']);
+                                      _submitImage(
+                                          vehicleData[0]['emergency_number']);
                                     },
                                     child: Text('Submit Image'),
                                   ),
@@ -138,7 +150,8 @@ class _VehicleDataPageState extends State<VehicleDataPage> {
                         FutureBuilder<Uint8List?>(
                           future: _fetchQrCodeImage(qrCodeUrl),
                           builder: (context, snapshot) {
-                            if (snapshot.connectionState == ConnectionState.waiting) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
                               return CircularProgressIndicator();
                             } else if (snapshot.hasError) {
                               return Text('Failed to load QR code image');
@@ -148,7 +161,9 @@ class _VehicleDataPageState extends State<VehicleDataPage> {
                                   SizedBox(height: 16),
                                   Text(
                                     'QR Code',
-                                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold),
                                   ),
                                   SizedBox(height: 8),
                                   Container(
@@ -176,7 +191,8 @@ class _VehicleDataPageState extends State<VehicleDataPage> {
                 ),
               );
             } else {
-              return Center(child: Text('No data available for $vehicleNumber'));
+              return Center(
+                  child: Text('No data available for $vehicleNumber'));
             }
           } else {
             return Center(child: Text('No data available'));
@@ -202,37 +218,39 @@ class _VehicleDataPageState extends State<VehicleDataPage> {
     );
   }
 
-  Widget _buildItemWithIconAndAction(String text, IconData icon, Color color, VoidCallback? onPressed, String actionText) {
+  Widget _buildItemWithIconAndAction(String text, IconData icon, Color color,
+      VoidCallback? onPressed, String actionText) {
     return onPressed != null
         ? ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(
-        icon,
-        color: Colors.white,
-      ),
-      label: Text(
-        actionText,
-        style: TextStyle(color: Colors.white),
-      ),
-      style: ElevatedButton.styleFrom(backgroundColor: color),
-    )
+            onPressed: onPressed,
+            icon: Icon(
+              icon,
+              color: Colors.white,
+            ),
+            label: Text(
+              actionText,
+              style: TextStyle(color: Colors.white),
+            ),
+            style: ElevatedButton.styleFrom(backgroundColor: color),
+          )
         : Row(
-      children: [
-        Icon(
-          icon,
-          color: color,
-        ),
-        SizedBox(width: 8),
-        Text(
-          text,
-          style: TextStyle(fontSize: 18, color: color),
-        ),
-      ],
-    );
+            children: [
+              Icon(
+                icon,
+                color: color,
+              ),
+              SizedBox(width: 8),
+              Text(
+                text,
+                style: TextStyle(fontSize: 18, color: color),
+              ),
+            ],
+          );
   }
 
   Future<Map<String, dynamic>> _fetchVehicleData(String vehicleNumber) async {
-    final Uri url = Uri.parse('https://safeconnect-e81248c2d86f.herokuapp.com/vehicle/get_vehicle_data/$vehicleNumber');
+    final Uri url = Uri.parse(
+        'https://safeconnekt-f9f414081a75.herokuapp.com/vehicle/get_vehicle_data$vehicleNumber');
     try {
       final response = await http.get(url);
 
@@ -277,7 +295,8 @@ class _VehicleDataPageState extends State<VehicleDataPage> {
     await launch(_phoneLaunchUri.toString());
   }
 
-  Future<void> _showImageSourceActionSheet(BuildContext context, String emergencyContact) async {
+  Future<void> _showImageSourceActionSheet(
+      BuildContext context, String emergencyContact) async {
     showModalBottomSheet(
       context: context,
       builder: (BuildContext bc) {
@@ -315,6 +334,7 @@ class _VehicleDataPageState extends State<VehicleDataPage> {
       setState(() {
         _selectedImage = result.files.first.bytes;
         _fileName = result.files.first.name;
+        _mediaType = 'image'; // Set _mediaType to 'image'
       });
     }
   }
@@ -328,20 +348,46 @@ class _VehicleDataPageState extends State<VehicleDataPage> {
       setState(() {
         _selectedImage = bytes;
         _fileName = pickedFile.name;
+        _mediaType = 'image'; // Set _mediaType to 'image'
       });
     }
   }
 
   Future<void> _submitImage(String emergencyContact) async {
-    if (_selectedImage == null) return;
+    await Firebase.initializeApp();
+    if (_selectedImage == null) return; // No image/video selected
 
     final String randomId = DateTime.now().millisecondsSinceEpoch.toString();
     final String contactWithCountryCode = "+91$emergencyContact";
 
     try {
-      await Firebase.initializeApp();
-      final firebase_storage.Reference ref = firebase_storage.FirebaseStorage.instance.ref().child('logs/${DateTime.now().millisecondsSinceEpoch}.jpg');
-      final firebase_storage.UploadTask uploadTask = ref.putData(_selectedImage!);
+      // 1. Get Location and Address FIRST
+      _currentPosition = await getLocation();
+      if (_currentPosition != null) {
+        _address = await getAddressFromLatLng(_currentPosition!);
+      } else {
+        _address = 'Location not available';
+      }
+
+      // 2. Proceed with Image Upload only if location/address is available
+      if (_selectedImage == null) return;
+
+      final String randomId = DateTime.now().millisecondsSinceEpoch.toString();
+      final String contactWithCountryCode = "+91$emergencyContact";
+
+      // Use mime package to determine the file type (image or video)
+      final mimeType = lookupMimeType(_fileName!)!.split('/')[0];
+      _mediaType = mimeType;
+
+      // Use the correct file extension based on mimeType
+      final fileExtension = mimeType == 'image' ? 'jpg' : 'mp4';
+
+      final firebase_storage.Reference ref =
+          firebase_storage.FirebaseStorage.instance.ref().child(
+              'logs/${DateTime.now().millisecondsSinceEpoch}.$fileExtension');
+
+      final firebase_storage.UploadTask uploadTask =
+          ref.putData(_selectedImage!);
 
       final firebase_storage.TaskSnapshot downloadUrl = await uploadTask;
       final String mediaUrl = await downloadUrl.ref.getDownloadURL();
@@ -353,23 +399,80 @@ class _VehicleDataPageState extends State<VehicleDataPage> {
           .doc(randomId)
           .set({
         'mediaLink': mediaUrl,
-        'address': 'address',
-        'type': 'image',
-        'duration_seconds': 'null',
-        'google_maps_url': 'location'
+        'address': _address,
+        'type': _mediaType,
+        'duration_seconds':
+            'null', // You'll need to implement duration logic (for videos)
+        'google_maps_url': _currentPosition != null
+            ? 'https://www.google.com/maps/search/?api=1&query=${_currentPosition!.latitude},${_currentPosition!.longitude}'
+            : 'Location not available',
+        'latitude': _currentPosition?.latitude ?? null, // Add latitude
+        'longitude': _currentPosition?.longitude ?? null, // Add longitude
       });
 
       setState(() {
         _selectedImage = null;
         _fileName = null;
+        _mediaType = null;
+        _currentPosition = null;
+        _address = null;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Image uploaded successfully')),
+        SnackBar(content: Text('Media uploaded successfully')),
       );
     } catch (e) {
       print('Error uploading image: $e');
-      throw Exception('Failed to upload image: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to upload media')),
+      );
+    }
+  }
+
+  // Function to get the user's current location
+  Future<Position> getLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    // Test if location services are enabled.
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return Future.error('Location services are disabled.');
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return Future.error('Location permissions are denied');
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return Future.error(
+          'Location permissions are permanently denied, we cannot request permissions.');
+    }
+
+    // When we reach here, permissions are granted and we can
+    // continue accessing the position of the device.
+    return await Geolocator.getCurrentPosition();
+  }
+
+  // Function to get address from latitude and longitude
+  Future<String> getAddressFromLatLng(Position position) async {
+    try {
+      List<Placemark> placemarks =
+          await placemarkFromCoordinates(position.latitude, position.longitude);
+      if (placemarks.isNotEmpty) {
+        Placemark placemark = placemarks[0];
+        String address =
+            "${placemark.street}, ${placemark.subLocality}, ${placemark.locality}, ${placemark.administrativeArea}, ${placemark.country}";
+        return address;
+      } else {
+        return "Address not found";
+      }
+    } catch (e) {
+      return "Error getting address: $e";
     }
   }
 }
