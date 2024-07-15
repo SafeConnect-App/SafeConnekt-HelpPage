@@ -250,7 +250,7 @@ class _VehicleDataPageState extends State<VehicleDataPage> {
 
   Future<Map<String, dynamic>> _fetchVehicleData(String vehicleNumber) async {
     final Uri url = Uri.parse(
-        'https://safeconnekt-f9f414081a75.herokuapp.com/vehicle/get_vehicle_data$vehicleNumber');
+        'https://safeconnekt-f9f414081a75.herokuapp.com/vehicle/get_vehicle_data/$vehicleNumber');
     try {
       final response = await http.get(url);
 
